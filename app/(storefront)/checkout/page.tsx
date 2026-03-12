@@ -43,7 +43,6 @@ export default function CheckoutPage() {
   const handlePaymentSubmit = async () => {
     setIsLoading(true)
     try {
-      // Simulate order creation
       await new Promise(resolve => setTimeout(resolve, 2000))
       setStep("confirmation")
     } catch (error) {
@@ -60,9 +59,7 @@ export default function CheckoutPage() {
       <h1 className="text-4xl font-bold text-slate-900 mb-8">Checkout</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content */}
         <div className="lg:col-span-2">
-          {/* Progress Steps */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
               {[
@@ -93,7 +90,6 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* Shipping Step */}
           {step === "shipping" && (
             <Card>
               <CardHeader>
@@ -191,7 +187,6 @@ export default function CheckoutPage() {
             </Card>
           )}
 
-          {/* Payment Step */}
           {step === "payment" && (
             <Card>
               <CardHeader>
@@ -251,7 +246,6 @@ export default function CheckoutPage() {
             </Card>
           )}
 
-          {/* Confirmation Step */}
           {step === "confirmation" && (
             <div className="text-center py-12">
               <CheckCircle2 className="w-16 h-16 text-green-600 mx-auto mb-4" />
@@ -264,7 +258,7 @@ export default function CheckoutPage() {
                 <p className="text-sm text-slate-600 mt-2">A confirmation email has been sent to {formData.email}</p>
               </div>
               <Button
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/products")}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 Continue Shopping
@@ -273,7 +267,6 @@ export default function CheckoutPage() {
           )}
         </div>
 
-        {/* Order Summary Sidebar */}
         <div>
           <Card className="sticky top-20">
             <CardHeader>
@@ -301,7 +294,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Items */}
               <div className="border-t pt-4 space-y-3">
                 {[
                   { name: "Premium Lipstick", qty: 1, price: 599 },

@@ -8,26 +8,17 @@ import { Trash2, Plus, Minus, ShoppingBag } from "lucide-react"
 import Link from "next/link"
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: "Premium Lipstick",
-      price: 599,
-      quantity: 1,
-      image: "https://images.unsplash.com/photo-1607638924702-92f191c48520?w=100&h=100&fit=crop",
-    },
-    {
-      id: 2,
-      name: "Face Serum",
-      price: 1299,
-      quantity: 2,
-      image: "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=100&h=100&fit=crop",
-    },
-  ])
+  const [cartItems, setCartItems] = useState<Array<{
+    id: string
+    name: string
+    price: number
+    quantity: number
+    image: string
+  }>>([])
 
   const [promoCode, setPromoCode] = useState("")
 
-  const updateQuantity = (id: number, quantity: number) => {
+  const updateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
       setCartItems(cartItems.filter(item => item.id !== id))
     } else {
@@ -35,7 +26,7 @@ export default function CartPage() {
     }
   }
 
-  const removeItem = (id: number) => {
+  const removeItem = (id: string) => {
     setCartItems(cartItems.filter(item => item.id !== id))
   }
 
@@ -50,7 +41,6 @@ export default function CartPage() {
 
       {cartItems.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
@@ -65,14 +55,11 @@ export default function CartPage() {
                       className="w-20 h-20 object-cover rounded"
                     />
                     <div className="flex-1">
-                      <Link href={`/storefront/products/${item.id}`}>
-                        <h3 className="font-semibold text-slate-900 hover:text-blue-600">
-                          {item.name}
-                        </h3>
-                      </Link>
+                      <h3 className="font-semibold text-slate-900">
+                        {item.name}
+                      </h3>
                       <p className="text-slate-600 mt-1">Rs. {item.price}</p>
 
-                      {/* Quantity Controls */}
                       <div className="flex items-center gap-2 mt-3">
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity - 1)}
@@ -106,9 +93,8 @@ export default function CartPage() {
               </CardContent>
             </Card>
 
-            {/* Continue Shopping */}
             <div className="mt-6">
-              <Link href="/storefront/products">
+              <Link href="/products">
                 <Button variant="outline" className="w-full">
                   Continue Shopping
                 </Button>
@@ -116,7 +102,6 @@ export default function CartPage() {
             </div>
           </div>
 
-          {/* Order Summary */}
           <div>
             <Card>
               <CardHeader>
@@ -147,7 +132,6 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                {/* Promo Code */}
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <Input
@@ -167,8 +151,7 @@ export default function CartPage() {
                   )}
                 </div>
 
-                {/* Checkout Button */}
-                <Link href="/storefront/checkout">
+                <Link href="/checkout">
                   <Button className="w-full bg-blue-600 hover:bg-blue-700 h-11">
                     Proceed to Checkout
                   </Button>
@@ -180,7 +163,6 @@ export default function CartPage() {
               </CardContent>
             </Card>
 
-            {/* Benefits */}
             <div className="mt-6 space-y-3">
               <div className="flex gap-3 text-sm">
                 <span className="text-lg">🚚</span>
@@ -204,7 +186,7 @@ export default function CartPage() {
           <ShoppingBag size={48} className="mx-auto text-slate-300 mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Your cart is empty</h2>
           <p className="text-slate-600 mb-6">Add some products to get started</p>
-          <Link href="/storefront/products">
+          <Link href="/products">
             <Button className="bg-blue-600 hover:bg-blue-700">
               Continue Shopping
             </Button>
