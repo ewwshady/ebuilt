@@ -3,6 +3,12 @@ import { getDb } from "@/lib/mongodb"
 import { hashPassword } from "@/lib/password"
 import { storeOTP } from "@/lib/otp"
 import { sendOTPEmail } from "@/lib/email"
+import {
+  validateEmail,
+  validatePassword,
+  validateName,
+  validateBatch,
+} from "@/lib/validation"
 import { ObjectId } from "mongodb"
 
 export async function POST(request: Request) {
@@ -10,12 +16,18 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { email, password, name, tenantId } = body
 
-    if (!email || !password || !name || !tenantId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
+    // Strict input validation
+    const validations = [
+      ["email", validateEmail(email)],
+      ["password", validatePassword(password)],
+      ["name", validateName(name)],
+      ["tenantId", tenantId ? { valid: true } : { valid: false, error: "Store ID is required" }],
+    ] as const
 
-    if (password.length < 8) {
-      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 })
+    const { valid: allValid, errors } = validateBatch(validations)
+
+    if (!allValid) {
+      return NextResponse.json({ error: "Validation failed", errors }, { status: 400 })
     }
 
     const db = await getDb()

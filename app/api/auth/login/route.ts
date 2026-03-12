@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import { verifyPassword } from "@/lib/password"
 import { createSession } from "@/lib/session"
+import { validateEmail, validateBatch } from "@/lib/validation"
 import type { User } from "@/lib/schemas"
 
 export async function POST(request: NextRequest) {
@@ -10,17 +11,26 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json()
     } catch (error) {
-      return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 })
+      return NextResponse.json({ error: "Invalid request format" }, { status: 400 })
     }
 
     const { email, password } = body
 
-    if (!email || typeof email !== "string" || !email.includes("@")) {
-      return NextResponse.json({ error: "Valid email is required" }, { status: 400 })
-    }
+    // Strict input validation
+    const validations = [
+      ["email", validateEmail(email)],
+      [
+        "password",
+        password && typeof password === "string" && password.length > 0
+          ? { valid: true }
+          : { valid: false, error: "Password is required" },
+      ],
+    ] as const
 
-    if (!password || typeof password !== "string" || password.length === 0) {
-      return NextResponse.json({ error: "Password is required" }, { status: 400 })
+    const { valid: allValid, errors } = validateBatch(validations)
+
+    if (!allValid) {
+      return NextResponse.json({ error: "Validation failed", errors }, { status: 400 })
     }
 
     const client = await clientPromise

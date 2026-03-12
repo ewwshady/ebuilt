@@ -2,14 +2,17 @@ import { NextResponse } from "next/server"
 import { getDb } from "@/lib/mongodb"
 import { sendOTPEmail } from "@/lib/email"
 import { storeOTP } from "@/lib/otp"
+import { validateEmail } from "@/lib/validation"
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { email } = body
 
-    if (!email || typeof email !== "string" || !email.includes("@")) {
-      return NextResponse.json({ error: "Valid email is required" }, { status: 400 })
+    // Strict email validation
+    const emailValidation = validateEmail(email)
+    if (!emailValidation.valid) {
+      return NextResponse.json({ error: emailValidation.error }, { status: 400 })
     }
 
     const db = await getDb()

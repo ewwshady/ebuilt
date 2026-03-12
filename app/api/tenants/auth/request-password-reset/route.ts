@@ -3,6 +3,7 @@ import { getDb } from "@/lib/mongodb"
 import { sendOTPEmail } from "@/lib/email"
 import { storeOTP } from "@/lib/otp"
 import { getTenantFromSubdomainHeader } from "@/lib/tenant-admin"
+import { validateEmail } from "@/lib/validation"
 import { ObjectId } from "mongodb"
 
 export async function POST(request: Request) {
@@ -10,8 +11,10 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { email } = body
 
-    if (!email || typeof email !== "string" || !email.includes("@")) {
-      return NextResponse.json({ error: "Valid email is required" }, { status: 400 })
+    // Strict email validation
+    const emailValidation = validateEmail(email)
+    if (!emailValidation.valid) {
+      return NextResponse.json({ error: emailValidation.error }, { status: 400 })
     }
 
     // Get tenant from subdomain

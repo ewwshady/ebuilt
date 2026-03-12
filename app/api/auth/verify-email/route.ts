@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getDb } from "@/lib/mongodb"
 import { verifyOTP, clearOTP } from "@/lib/otp"
+import { validateEmail, validateOTP, validateBatch } from "@/lib/validation"
 import { ObjectId } from "mongodb"
 
 export async function POST(request: Request) {
@@ -8,8 +9,17 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { email, otp, tenantId } = body
 
-    if (!email || !otp || !tenantId) {
-      return NextResponse.json({ error: "Email, OTP and tenant ID are required" }, { status: 400 })
+    // Strict input validation
+    const validations = [
+      ["email", validateEmail(email)],
+      ["otp", validateOTP(otp)],
+      ["tenantId", tenantId ? { valid: true } : { valid: false, error: "Tenant ID is required" }],
+    ] as const
+
+    const { valid: allValid, errors } = validateBatch(validations)
+
+    if (!allValid) {
+      return NextResponse.json({ error: "Validation failed", errors }, { status: 400 })
     }
 
     const db = await getDb()

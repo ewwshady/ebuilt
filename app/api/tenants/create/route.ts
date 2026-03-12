@@ -2,6 +2,14 @@ import { NextResponse } from "next/server"
 import { getDb } from "@/lib/mongodb"
 import { hashPassword } from "@/lib/password"
 import { createSession } from "@/lib/session"
+import {
+  validateEmail,
+  validatePassword,
+  validateName,
+  validateSubdomain,
+  validateStoreName,
+  validateBatch,
+} from "@/lib/validation"
 import fs from "fs"
 import path from "path"
 
@@ -37,12 +45,19 @@ export async function POST(req: Request) {
     const logoFile = formData.get("logo") as File | null
     const bannerFile = formData.get("banner") as File | null
 
-    if (!storeName || !subdomain || !ownerName || !email || !password) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
+    // Strict input validation
+    const validations = [
+      ["storeName", validateStoreName(storeName)],
+      ["subdomain", validateSubdomain(subdomain)],
+      ["ownerName", validateName(ownerName)],
+      ["email", validateEmail(email)],
+      ["password", validatePassword(password)],
+    ] as const
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
+    const { valid: allValid, errors } = validateBatch(validations)
+
+    if (!allValid) {
+      return NextResponse.json({ error: "Validation failed", errors }, { status: 400 })
     }
 
     // Ensure upload folder exists

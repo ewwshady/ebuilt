@@ -3,6 +3,7 @@ import { getDb } from "@/lib/mongodb"
 import { verifyOTP, clearOTP } from "@/lib/otp"
 import { hashPassword } from "@/lib/password"
 import { getTenantFromSubdomainHeader } from "@/lib/tenant-admin"
+import { validateEmail, validatePassword, validateOTP, validateBatch } from "@/lib/validation"
 import { ObjectId } from "mongodb"
 
 export async function POST(request: Request) {
@@ -10,16 +11,23 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { email, otp, newPassword, confirmPassword } = body
 
-    if (!email || !otp || !newPassword || !confirmPassword) {
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 })
-    }
+    // Strict input validation
+    const validations = [
+      ["email", validateEmail(email)],
+      ["otp", validateOTP(otp)],
+      ["newPassword", validatePassword(newPassword)],
+      [
+        "confirmPassword",
+        confirmPassword === newPassword
+          ? { valid: true }
+          : { valid: false, error: "Passwords do not match" },
+      ],
+    ] as const
 
-    if (newPassword !== confirmPassword) {
-      return NextResponse.json({ error: "Passwords do not match" }, { status: 400 })
-    }
+    const { valid: allValid, errors } = validateBatch(validations)
 
-    if (newPassword.length < 8) {
-      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 })
+    if (!allValid) {
+      return NextResponse.json({ error: "Validation failed", errors }, { status: 400 })
     }
 
     // Get tenant from subdomain

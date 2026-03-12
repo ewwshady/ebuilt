@@ -1,5 +1,5 @@
-// Email service - using console logs for development
-// In production, integrate with services like SendGrid, AWS SES, or Resend
+// Email service using Resend API
+// Requires RESEND_API_KEY in .env.local
 
 interface EmailOptions {
   to: string
@@ -8,27 +8,52 @@ interface EmailOptions {
   html: string
 }
 
-export async function sendEmail(options: EmailOptions): Promise<void> {
+async function sendEmailViaResend(options: EmailOptions): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY
+
+  if (!apiKey) {
+    console.error("[Email Service] RESEND_API_KEY is not configured")
+    throw new Error("Email service is not configured")
+  }
+
   try {
-    // In production, replace this with actual email service
-    // For now, we'll simulate by logging and could integrate with:
-    // - SendGrid: https://sendgrid.com
-    // - AWS SES: https://aws.amazon.com/ses/
-    // - Resend: https://resend.com
-    // - Nodemailer: https://nodemailer.com
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      console.error("[Email Service Error]", data)
+      throw new Error(data.message || "Failed to send email via Resend")
+    }
 
     console.log("[Email Service]", {
       to: options.to,
       subject: options.subject,
+      messageId: data.id,
       timestamp: new Date().toISOString(),
     })
-
-    // TODO: Integrate with actual email provider
-    // For now, emails are logged to console for development
   } catch (error) {
     console.error("[Email Service Error]", error)
     throw new Error("Failed to send email")
   }
+}
+
+export async function sendEmail(options: EmailOptions): Promise<void> {
+  // Use Resend API
+  await sendEmailViaResend(options)
 }
 
 export async function sendOTPEmail(email: string, otp: string, purpose: "email_verification" | "password_reset"): Promise<void> {
