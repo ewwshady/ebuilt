@@ -1,88 +1,79 @@
-import { NextResponse } from "next/server";
-import { getDb } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
-import { themeRegistry } from "@/themes";
+import { NextResponse } from "next/server"
+import { getDb } from "@/lib/mongodb"
+import { getSession } from "@/lib/session"
+import { getTenantFromSubdomainHeader } from "@/lib/tenant-admin"
+import { categoryThemes } from "@/lib/category-themes"
+import { ObjectId } from "mongodb"
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const body = await req.json();
-    const { tenantId, themeKey } = body;
-
-    // Validation
-    if (!tenantId || !themeKey) {
-      return NextResponse.json(
-        { error: "tenantId and themeKey required" },
-        { status: 400 }
-      );
+    // Verify admin session
+    const session = await getSession()
+    if (!session || session.role !== "tenant_admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if theme exists in registry
-    if (!themeRegistry[themeKey]) {
-      return NextResponse.json(
-        { error: `Invalid themeKey: ${themeKey}` },
-        { status: 400 }
-      );
+    // Get tenant from subdomain
+    const tenant = await getTenantFromSubdomainHeader()
+    if (!tenant || tenant._id?.toString() !== session.tenantId) {
+      return NextResponse.json({ error: "Tenant mismatch" }, { status: 403 })
     }
 
-    // Validate ObjectId
-    let tenantObjectId: ObjectId;
-    try {
-      tenantObjectId = new ObjectId(tenantId);
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid tenantId format" },
-        { status: 400 }
-      );
+    const body = await request.json()
+    const { themeId, colors, layout, typography } = body
+
+    if (!themeId) {
+      return NextResponse.json({ error: "Theme ID is required" }, { status: 400 })
     }
 
-    // Get database and update tenant
-    const db = await getDb();
-    const tenants = db.collection("tenants");
-
-    // Get existing tenant to preserve custom assets
-    const tenant = await tenants.findOne({ _id: tenantObjectId });
-    if (!tenant) {
-      return NextResponse.json(
-        { error: "Tenant not found" },
-        { status: 404 }
-      );
+    // Validate theme exists
+    const baseTheme = categoryThemes[themeId]
+    if (!baseTheme) {
+      return NextResponse.json({ error: "Invalid theme ID" }, { status: 400 })
     }
 
-    // Update with new theme key
-    const result = await tenants.updateOne(
-      { _id: tenantObjectId },
+    const db = await getDb()
+
+    // Prepare theme configuration
+    const themeConfig = {
+      baseTheme: themeId,
+      colors: colors || baseTheme.defaultColors,
+      layout: layout || baseTheme.layout,
+      typography: typography || baseTheme.typography,
+      customizations: {
+        colors: colors ? true : false,
+        layout: layout ? true : false,
+        typography: typography ? true : false,
+      },
+    }
+
+    // Update tenant with theme
+    const result = await db.collection("tenants").updateOne(
+      { _id: new ObjectId(tenant._id!) },
       {
         $set: {
-          themeKey,
-          updatedAt: new Date(),
+          theme: themeConfig,
+          updatedAt: new Date().toISOString(),
         },
       }
-    );
+    )
 
-    if (result.modifiedCount === 0) {
-      return NextResponse.json(
-        { error: "Failed to update tenant theme" },
-        { status: 400 }
-      );
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
     }
 
-    // Return success with theme metadata
-    const theme = themeRegistry[themeKey];
     return NextResponse.json({
       success: true,
-      message: `Theme "${themeKey}" applied successfully`,
-      themeKey,
+      message: `Theme "${baseTheme.name}" applied successfully`,
       theme: {
-        id: theme.metadata.id,
-        name: theme.metadata.name,
-        description: theme.metadata.description,
+        id: themeId,
+        name: baseTheme.name,
+        description: baseTheme.description,
+        config: themeConfig,
       },
-    });
-  } catch (err) {
-    console.error("Error applying theme:", err);
-    return NextResponse.json(
-      { error: "Failed to apply theme", details: String(err) },
-      { status: 500 }
-    );
+    })
+  } catch (error) {
+    console.error("[apply theme]", error)
+    return NextResponse.json({ error: "Failed to apply theme" }, { status: 500 })
   }
 }

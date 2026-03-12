@@ -92,7 +92,7 @@ export function CartDrawer() {
                   <span>Total:</span>
                   <span>${totalPrice.toFixed(2)}</span>
                 </div>
-                <Link href="/storefront/checkout">
+                <Link href="/checkout">
                   <Button className="w-full" size="lg">
                     Proceed to Checkout
                   </Button>

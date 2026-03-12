@@ -4,6 +4,7 @@ import clientPromise from "@/lib/mongodb"
 import { comparePassword } from "@/lib/password"
 import { createAdminSession, setAdminSessionCookie } from "@/lib/admin-auth"
 import { getTenantFromSubdomainHeader } from "@/lib/tenant-admin"
+import { validateEmail, validateBatch } from "@/lib/validation"
 import { ObjectId } from "mongodb"
 import type { User } from "@/lib/schemas"
 
@@ -12,8 +13,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { email, password } = body
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password required" }, { status: 400 })
+    // Strict input validation
+    const validations = [
+      ["email", validateEmail(email)],
+      [
+        "password",
+        password && typeof password === "string" && password.length > 0
+          ? { valid: true }
+          : { valid: false, error: "Password is required" },
+      ],
+    ] as const
+
+    const { valid: allValid, errors } = validateBatch(validations)
+
+    if (!allValid) {
+      return NextResponse.json({ error: "Validation failed", errors }, { status: 400 })
     }
 
     // Get tenant from subdomain header (set by middleware)

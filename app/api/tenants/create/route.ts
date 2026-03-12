@@ -2,8 +2,15 @@ import { NextResponse } from "next/server"
 import { getDb } from "@/lib/mongodb"
 import { hashPassword } from "@/lib/password"
 import { createSession } from "@/lib/session"
-import fs from "fs"
-import path from "path"
+import {
+  validateEmail,
+  validatePassword,
+  validateName,
+  validateSubdomain,
+  validateStoreName,
+  validateBatch,
+} from "@/lib/validation"
+
 
 const defaultHeader = {
   showTitle: true,
@@ -24,47 +31,32 @@ const defaultHeader = {
 
 export async function POST(req: Request) {
   try {
-    // Support multipart/form-data
-    const formData = await req.formData()
+    // Parse JSON body
+    const body = await req.json()
 
-    const storeName = formData.get("storeName") as string
-    const subdomain = formData.get("subdomain") as string
-    const ownerName = formData.get("ownerName") as string
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
-    const description = (formData.get("description") as string) || ""
+    const storeName = body.storeName as string
+    const subdomain = body.subdomain as string
+    const ownerName = body.ownerName as string
+    const email = body.email as string
+    const password = body.password as string
+    const description = body.description || ""
 
-    const logoFile = formData.get("logo") as File | null
-    const bannerFile = formData.get("banner") as File | null
+    // Strict input validation
+    const validations = [
+      ["storeName", validateStoreName(storeName)],
+      ["subdomain", validateSubdomain(subdomain)],
+      ["ownerName", validateName(ownerName)],
+      ["email", validateEmail(email)],
+      ["password", validatePassword(password)],
+    ] as const
 
-    if (!storeName || !subdomain || !ownerName || !email || !password) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    const { valid: allValid, errors } = validateBatch(validations)
+
+    if (!allValid) {
+      return NextResponse.json({ error: "Validation failed", errors }, { status: 400 })
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
-    }
 
-    // Ensure upload folder exists
-    const uploadDir = path.join(process.cwd(), "public/stores")
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true })
-
-    // Save uploaded logo/banner
-    const safeName = storeName.toLowerCase().replace(/\s+/g, "-")
-    let logo = ""
-    let banner = ""
-
-    if (logoFile) {
-      const bytes = await logoFile.arrayBuffer()
-      fs.writeFileSync(path.join(uploadDir, `${safeName}-logo.png`), Buffer.from(bytes))
-      logo = `/stores/${safeName}-logo.png`
-    }
-
-    if (bannerFile) {
-      const bytes = await bannerFile.arrayBuffer()
-      fs.writeFileSync(path.join(uploadDir, `${safeName}-banner.png`), Buffer.from(bytes))
-      banner = `/stores/${safeName}-banner.png`
-    }
 
     // Use getDb() instead of hardcoded db
     const db = await getDb()
@@ -100,21 +92,16 @@ export async function POST(req: Request) {
       ownerId: userId,
       description,
       status: "active",
-      plan: "basic", // fixed default
+      plan: "basic",
       category: theme.category || "general",
       themeKey: theme.key,
       theme: {
         primaryColor: theme.primaryColor || "#ec4899",
         secondaryColor: theme.secondaryColor || "#ffffff",
         accentColor: theme.accentColor || "#F472B6",
-        logo: logo || theme.logo,
-        banner: banner || theme.banner,
       },
-      logo,
-      banner,
       header: {
         ...defaultHeader,
-        logo: logo || theme.logo,
       },
       footer: theme.footer || {},
       customDomainVerified: false,
@@ -147,6 +134,7 @@ export async function POST(req: Request) {
 
     const res = NextResponse.json(
       {
+        success: true,
         tenant: {
           _id: tenantResult.insertedId.toString(),
           subdomain,
@@ -156,14 +144,9 @@ export async function POST(req: Request) {
             primaryColor: theme.primaryColor,
             secondaryColor: theme.secondaryColor,
             accentColor: theme.accentColor || "#F472B6",
-            logo: logo || theme.logo,
-            banner: banner || theme.banner,
           },
-          logo,
-          banner,
           header: {
             ...defaultHeader,
-            logo: logo || theme.logo,
           },
           footer: theme.footer || {},
         },

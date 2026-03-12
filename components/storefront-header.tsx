@@ -37,7 +37,7 @@ export function StorefrontHeader({ tenant }: StorefrontHeaderProps) {
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" })
-      window.location.href = "/storefront"
+      window.location.href = "/"
     } catch (error) {
       console.error("Logout failed:", error)
     }
@@ -48,10 +48,8 @@ export function StorefrontHeader({ tenant }: StorefrontHeaderProps) {
   const description = tenant.themeOverrides?.description || tenant.description
 
   const navLinks = tenant.themeOverrides?.headerLinks || [
-    { label: "Home", href: "/storefront" },
-    { label: "All Products", href: "/storefront/products" },
-    { label: "About", href: "/storefront/about" },
-    { label: "Contact", href: "/storefront/contact" },
+    { label: "Home", href: "/" },
+    { label: "Products", href: "/products" },
   ]
 
   return (
@@ -60,7 +58,7 @@ export function StorefrontHeader({ tenant }: StorefrontHeaderProps) {
         {/* Top Bar */}
         <div className="flex items-center justify-between py-4">
           {/* Logo & Name */}
-          <Link href="/storefront" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             {logo ? (
               <img src={logo} alt={name} className="h-10 w-10 object-contain rounded-lg" />
             ) : (

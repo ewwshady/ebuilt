@@ -9,16 +9,22 @@ export interface User {
   role: "super_admin" | "tenant_admin" | "customer"
   tenantId?: ObjectId | null
   
-  status: "active" | "disabled" | "guest" // Added
-  acceptsMarketing: boolean // Added
+  status: "active" | "disabled" | "guest"
+  acceptsMarketing: boolean
+  emailVerified?: boolean
   
   lastLogin?: Date
   createdAt: Date
   updatedAt: Date
+  
+  // Password reset
+  passwordResetToken?: string
+  passwordResetExpiresAt?: Date
+  
   profile?: {
     phone?: string
     avatar?: string
-    addresses: { // Changed from single object to Array
+    addresses: {
       id: string
       type: "shipping" | "billing" | "both"
       isDefault: boolean
@@ -108,7 +114,12 @@ export interface PaymentProvider {
   type: "cod" | "stripe" | "khalti" | "esewa"
   enabled: boolean
   mode?: "test" | "live"
-  config: Record<string, any>
+  config: {
+    apiKey?: string // For eSewa: ESEWA_MERCHANT_CODE
+    secretKey?: string // For eSewa: ESEWA_SECRET_KEY
+    publicKey?: string
+    [key: string]: any
+  }
 }
 
 
@@ -204,9 +215,23 @@ export interface Order {
   subtotal: number
   tax: number
   total: number
-  status: "pending" | "processing" | "completed" | "cancelled"
+  currency: string // Default: "Rs." for NPR
+  
+  // Order Status
+  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled"
+  
+  // Payment Details
   paymentStatus: "pending" | "paid" | "failed" | "refunded"
-  paymentMethod: string
+  paymentMethod: "cod" | "esewa" | "stripe" | "khalti"
+  paymentId?: string // Payment gateway transaction ID
+  
+  // Delivery Tracking
+  tracking?: {
+    carrier?: string
+    trackingNumber?: string
+    estimatedDelivery?: Date
+  }
+  
   shippingAddress: {
     name: string
     phone: string   
@@ -216,6 +241,7 @@ export interface Order {
     zip: string
     country: string
   }
+  
   createdAt: Date
   updatedAt: Date
 }

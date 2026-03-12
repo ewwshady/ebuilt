@@ -4,16 +4,23 @@ import { getSession } from "@/lib/session"
 import type { Product } from "@/lib/schemas"
 import { ObjectId } from "mongodb"
 
-// GET all products for a tenant
+// GET all products for a tenant (public API - used by storefront)
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession()
+    let tenantId = session?.tenantId
 
-    if (!session || !session.tenantId) {
-      return NextResponse.json({ error: "Unauthorized - No valid session" }, { status: 401 })
+    // If no session, try to get tenant from subdomain
+    if (!tenantId) {
+      const { getTenantFromSubdomain } = await import("@/lib/tenant-server")
+      const tenant = await getTenantFromSubdomain()
+      if (!tenant) {
+        return NextResponse.json({ error: "Tenant not found" }, { status: 404 })
+      }
+      tenantId = tenant._id?.toString()
     }
 
-    if (!ObjectId.isValid(session.tenantId)) {
+    if (!tenantId || !ObjectId.isValid(tenantId)) {
       return NextResponse.json({ error: "Invalid tenant ID" }, { status: 400 })
     }
 
@@ -22,11 +29,26 @@ export async function GET(request: NextRequest) {
 
     const products = await db
       .collection<Product>("products")
-      .find({ tenantId: new ObjectId(session.tenantId) })
+      .find({ tenantId: new ObjectId(tenantId), status: "active" })
       .sort({ createdAt: -1 })
       .toArray()
 
-    return NextResponse.json({ products })
+    // Normalize for frontend
+    const normalized = products.map(p => ({
+      _id: p._id?.toString(),
+      name: p.name,
+      description: p.description,
+      price: p.price,
+      originalPrice: p.compareAtPrice,
+      category: p.category,
+      image: p.images?.[0] || "https://via.placeholder.com/400x400",
+      images: p.images || [],
+      rating: 4.5,
+      reviews: 0,
+      stock: p.inventory?.quantity || 0,
+    }))
+
+    return NextResponse.json({ products: normalized })
   } catch (error) {
     console.error("Get products error:", error)
     return NextResponse.json(
