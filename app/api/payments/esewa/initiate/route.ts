@@ -1,66 +1,49 @@
-import { NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
-import { headers } from "next/headers";
-import CryptoJS from "crypto-js";
+import { NextResponse } from "next/server"
+import { headers } from "next/headers"
+import { getDb } from "@/lib/mongodb"
+import { prepareEsewaPayment } from "@/lib/payments/esewa-service"
+import { ObjectId } from "mongodb"
 
 export async function POST(req: Request) {
   try {
-    const { amount, orderId } = await req.json();
+    const { amount, orderId, tenantId } = await req.json()
 
-    if (!amount || !orderId) {
+    if (!amount || !orderId || !tenantId) {
       return NextResponse.json(
-        { error: "Missing amount or orderId" },
+        { error: "Missing amount, orderId, or tenantId" },
         { status: 400 }
-      );
+      )
     }
 
-  
-    const headerList = await headers();
+    // Verify order exists and matches tenant
+    const db = await getDb()
+    const order = await db.collection("orders").findOne({
+      _id: new ObjectId(orderId),
+      tenantId: new ObjectId(tenantId),
+    })
 
-    const host = headerList.get("host");
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
 
-    const protocol = host?.includes("localhost") ? "http" : "https";
-    const baseUrl = `${protocol}://${host}`;
+    const headerList = await headers()
+    const host = headerList.get("host")
+    const protocol = host?.includes("localhost") ? "http" : "https"
+    const baseUrl = `${protocol}://${host}`
 
-    const transaction_uuid = uuidv4();
-    const total_amount = amount.toString();
+    // Prepare payment with tenant's eSewa config
+    const paymentData = await prepareEsewaPayment(tenantId, orderId, amount, baseUrl)
 
-    const product_code = process.env.ESEWA_MERCHANT_CODE!;
-    const secretKey = process.env.ESEWA_SECRET_KEY!;
+    if (!paymentData) {
+      return NextResponse.json(
+        { error: "Payment gateway not configured for this store" },
+        { status: 400 }
+      )
+    }
 
-    const message =
-      `total_amount=${total_amount},` +
-      `transaction_uuid=${transaction_uuid},` +
-      `product_code=${product_code}`;
-
-    const hash = CryptoJS.HmacSHA256(message, secretKey);
-    const signature = CryptoJS.enc.Base64.stringify(hash);
-
-    return NextResponse.json({
-      url: process.env.NEXT_PUBLIC_ESEWA_PAYMENT_URL,
-      formData: {
-        amount: total_amount,
-        tax_amount: "0",
-        total_amount,
-        transaction_uuid,
-        product_code,
-        product_service_charge: "0",
-        product_delivery_charge: "0",
-
-        success_url: `${baseUrl}/payment/esewa/success?orderId=${orderId}`,
-        failure_url: `${baseUrl}/payment/esewa/failure`,
-
-        signed_field_names: "total_amount,transaction_uuid,product_code",
-        signature,
-      },
-    });
-
+    return NextResponse.json(paymentData)
   } catch (error) {
-    console.error("Esewa initiate error:", error);
-
-    return NextResponse.json(
-      { error: "Failed to initiate payment" },
-      { status: 500 }
-    );
+    console.error("[eSewa initiate error]", error)
+    return NextResponse.json({ error: "Failed to initiate payment" }, { status: 500 })
   }
 }
