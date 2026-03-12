@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/mongodb";
-import { getSession } from "@/lib/session"; // Added session check
+import { getSession } from "@/lib/session";
 import { getTenantFromSubdomainHeader } from "@/lib/tenant-admin";
+import { deductInventory } from "@/lib/inventory-service";
 import { ObjectId } from "mongodb";
 import type { Order, Product } from "@/lib/schemas";
 
@@ -60,6 +61,21 @@ export async function POST(request: Request) {
       };
     });
 
+    // Check inventory before proceeding
+    if (tenant.settings?.enableInventory) {
+      for (const item of items) {
+        const product = products.find(p => p._id?.toString() === item.productId);
+        if (product && product.inventory?.trackInventory) {
+          const availableQuantity = product.inventory?.quantity || 0;
+          if (availableQuantity < item.quantity) {
+            return NextResponse.json({
+              error: `Insufficient stock for "${product.name}". Available: ${availableQuantity}, Requested: ${item.quantity}`
+            }, { status: 400 });
+          }
+        }
+      }
+    }
+
     const tax = subtotal * ((tenant.settings?.taxRate || 0) / 100);
     const orderTotal = subtotal + tax;
 
@@ -108,18 +124,32 @@ export async function POST(request: Request) {
     };
 
     const result = await db.collection("orders").insertOne(newOrder);
+    const orderId = result.insertedId;
 
-    // 4. Update Inventory
+    // 4. Update Inventory using proper inventory service
     if (tenant.settings?.enableInventory) {
-      for (const item of orderItems) {
-        await db.collection("products").updateOne(
-          { _id: item.productId },
-          { $inc: { "inventory.quantity": -item.quantity } }
-        );
+      const inventoryItems = orderItems.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+      }));
+
+      const inventoryResult = await deductInventory(
+        db,
+        new ObjectId(tenant._id),
+        inventoryItems,
+        orderId
+      );
+
+      if (!inventoryResult.success && inventoryResult.errors.length > 0) {
+        // Rollback order if inventory deduction fails
+        await db.collection("orders").deleteOne({ _id: orderId });
+        return NextResponse.json({
+          error: "Inventory deduction failed: " + inventoryResult.errors.join(", ")
+        }, { status: 400 });
       }
     }
 
-    return NextResponse.json({ orderId: result.insertedId.toString() }, { status: 201 });
+    return NextResponse.json({ orderId: orderId.toString() }, { status: 201 });
   } catch (error: any) {
     console.error("Checkout error:", error);
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
