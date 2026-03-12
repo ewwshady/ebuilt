@@ -30,17 +30,22 @@ if (process.env.NODE_ENV === "development") {
   clientPromise = client.connect()
 }
 
+// Log connection errors but don't throw (allows app to start for testing)
 clientPromise.catch((error) => {
-  console.error("MongoDB connection failed:", error)
-  throw new Error("Failed to connect to MongoDB.")
+  console.error("MongoDB connection failed:", error.message)
 })
 
 /**
  * Get database instance (no hardcoded db name anywhere else)
  */
 export async function getDb(): Promise<Db> {
-  const client = await clientPromise
-  return client.db(dbName)
+  try {
+    const client = await clientPromise
+    return client.db(dbName)
+  } catch (error) {
+    console.error("Database connection error:", error)
+    throw error
+  }
 }
 
 export default clientPromise

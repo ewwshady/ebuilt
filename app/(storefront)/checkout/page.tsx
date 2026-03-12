@@ -295,18 +295,7 @@ export default function CheckoutPage() {
               </div>
 
               <div className="border-t pt-4 space-y-3">
-                {[
-                  { name: "Premium Lipstick", qty: 1, price: 599 },
-                  { name: "Face Serum", qty: 2, price: 1299 },
-                ].map((item, idx) => (
-                  <div key={idx} className="text-sm">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-slate-700">{item.name}</span>
-                      <span className="text-slate-900 font-semibold">Rs. {item.price * item.qty}</span>
-                    </div>
-                    <p className="text-xs text-slate-500">Qty: {item.qty}</p>
-                  </div>
-                ))}
+                <p className="text-sm text-slate-600">Items summary would appear here based on cart contents</p>
               </div>
             </CardContent>
           </Card>

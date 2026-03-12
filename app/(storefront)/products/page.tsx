@@ -250,55 +250,7 @@ export default function ProductsPage() {
               </Card>
             ))}
           </div>
-        )}
-                        )}
-                      </div>
-
-                      <div className="p-4 space-y-4">
-                        <div>
-                          <p className="text-xs text-slate-500 mb-1 uppercase tracking-wide font-semibold">
-                            {product.category || "General"}
-                          </p>
-                          <h3 className="font-semibold text-slate-900 line-clamp-2">{product.name}</h3>
-                        </div>
-
-                        {product.rating && (
-                          <div className="flex items-center gap-2">
-                            <div className="flex gap-0.5">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  size={14}
-                                  className={
-                                    i < Math.floor(product.rating)
-                                      ? "fill-yellow-400 text-yellow-400"
-                                      : "text-slate-300"
-                                  }
-                                />
-                              ))}
-                            </div>
-                            <span className="text-xs text-slate-600">({product.reviews || 0})</span>
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-slate-900">Rs. {product.price}</span>
-                          {product.originalPrice > product.price && (
-                            <span className="text-sm text-slate-500 line-through">Rs. {product.originalPrice}</span>
-                          )}
-                        </div>
-
-                        <Link href={`/products/${product._id}`} className="block">
-                          <Button className="w-full bg-blue-600 hover:bg-blue-700 h-10">
-                            Add to Cart
-                          </Button>
-                        </Link>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
+        ) : (
               <div className="text-center py-16">
                 <p className="text-slate-600 text-lg mb-4">No products found</p>
                 <Button
